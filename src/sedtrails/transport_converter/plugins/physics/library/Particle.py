@@ -22,28 +22,36 @@ class Particle(ABC):
     ratio : float
         ratio of tracer sediment particle diameter to background sediment particle diameter [-].
     """
-
+    def __init__(self, x : float, y: float, S : dict):
+       self._x = x
+       self._y = y
+       self.S = S    
 # I am not quite sure if we should include a class for "Passive(Particle)" here
 # because it does not have any physical properties.
 
-    # concrete method
-    def Dstar_Tracer(self, S) -> float:
+    @abstractmethod
+    def Dstar_Tracer(self) -> float:
         """
         Calculates the dimentionless diameter of the tracer sediment particle [-].
         """
-        return (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dTracer
+        # return (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dTracer
+        pass
 
-    def Dstar_Background(self, S) -> float:
+    @abstractmethod
+    def Dstar_Background(self) -> float:
         """
         Calculates the dimentionless diameter of the background sediment particle [-].
         """
-        return (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dBackground
-
-    def ratio(self, S) -> float:
+        #return (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dBackground
+        pass
+    
+    @abstractmethod
+    def ratio(self) -> float:
         """
         Calculates the ratio of tracer sediment particle diameter to background sediment particle diameter [-].
         """
-        return S.dTracer / S.dBackground
+        #return S.dTracer / S.dBackground
+        pass
 
 
 @dataclass
@@ -74,19 +82,32 @@ class Sand(Particle):
     U_bed : float
         bedload velocity of the tracer sand particle [m/s].
     """
+    w_s_t : float
+    theta_cr_Tracer : float
+    theta_cr_Background : float
+    theta_cr_Tracer_exp : float
+    ustar_cr : float
+    theta_max_Tracer : float
+    theta_max_Background : float
+    rouse : float
+    U_bed : float
 
+
+    @property
     def w_s_t(self, Dstar_Tracer, S) -> float:
         """
         Calculates the settling velocity of the tracer sand particle [m/s].
         """
         return (S.visc_kin / S.dTracer) * (np.sqrt(10.36 ** 2 + 1.049 * (Dstar_Tracer ** 3)) - 10.36)
 
+    @property
     def theta_cr_Tracer(self, Dstar_Tracer) -> float:
         """
         Calculates the critical Shields number for the tracer sand particle [-].
         """
         return 0.3 / (1 + 1.2 * Dstar_Tracer) + 0.055 * (1 - np.exp(-0.020 * Dstar_Tracer))
-
+    
+    @property
     def theta_cr_Background(self, Dstar_Background) -> float:
         """
         Calculates the critical Shields number for the background sand particle [-].
@@ -95,6 +116,7 @@ class Sand(Particle):
         """
         return 0.3 / (1 + 1.2 * Dstar_Background) + 0.055 * (1 - np.exp(-0.020 * Dstar_Background))
 
+    @property
     def theta_cr_Tracer_exp(self, theta_cr_Tracer, ratio) -> float:
         """
         Calculates the adsjusted critical Shields number for the tracer sand particle to
@@ -103,36 +125,65 @@ class Sand(Particle):
         """
         return theta_cr_Tracer * np.sqrt(8 / (3 * (ratio ** 2) + 6 * ratio - 1)) * ((3.2260 * ratio) /
                     (4 * ratio - 2 * (ratio + 1 - np.sqrt(ratio ** 2 + 2 * ratio - 1/3))))
-
+   
+    @property
     def ustar_cr(self, S) -> float:
         """
         Calculates the critical friction velocity for sand particle erosion [m/s].
         """
         return np.sqrt(S.tau_cr / S.rhoFluid)
-
+    
+    @property
     def theta_max_Tracer(self, abstau_max, S) -> float:
         """
         Calculates the maximum Shields number for the tracer sand particle [-].
         """
         return abstau_max / (S.g * (S.rhoParticle - S.rhoFluid) * S.dTracer)
 
+    @property
     def theta_max_Background(self, abstau_max, S) -> float:
         """
         Calculates the maximum Shields number for the background sand particle [-].
         """
         return abstau_max / (S.g * (S.rhoParticle - S.rhoFluid) * S.dBackground)
 
+    @property
     def rouse(self, w_s_t, ustar_max) -> float:
         """
         Calculates the Rouse number for the tracer sand particle [-].
         """
         return w_s_t / (0.4 * ustar_max)
 
+    @property
     def U_bed(self, ustar_mean, theta_cr_Tracer_exp, theta_max_Tracer) -> float:
         """
         Calculates the bedload velocity of the tracer sand particle [m/s].
         """
         return 10 * ustar_mean * (1 - 0.7 * np.sqrt(theta_cr_Tracer_exp / theta_max_Tracer))
+    
+    def Dstar_Tracer(self) -> None:
+        """
+        Calculates the dimentionless diameter of the tracer sediment particle [-].
+        """
+        self.S.Dstar_Tracer = (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dTracer
+        
+
+
+    def Dstar_Background(self, S : dict) -> float:
+        """
+        Calculates the dimentionless diameter of the background sediment particle [-].
+        """
+        return (S.g * (S.rhoParticle / S.rhoFluid - 1) / (S.visc_kin ** 2)) ** (1/3) * S.dBackground
+    
+    def ratio(self, S : dict) -> float:
+        """
+        Calculates the ratio of tracer sediment particle diameter to background sediment particle diameter [-].
+        """
+        return S.dTracer / S.dBackground 
+
+S = {'dTracer': 1e-4, 'dBackground':1e-3}
+sand = Sand()
+sand.ratio(S)
 
 
 @dataclass
